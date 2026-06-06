@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador Circuito RC — Física II</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1524;
+    --bg3: #151c30;
+    --panel: #1a2238;
+    --panel2: #1f2a42;
+    --border: rgba(99,179,255,0.15);
+    --border2: rgba(99,179,255,0.3);
+    --accent: #4fc3f7;
+    --accent2: #00e5ff;
+    --accent3: #7c4dff;
+    --green: #69f0ae;
+    --amber: #ffd740;
+    --red: #ff5252;
+    --text: #e8eaf6;
+    --text2: #90a4ae;
+    --text3: #546e7a;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --glow: 0 0 20px rgba(79,195,247,0.25);
+    --glow2: 0 0 40px rgba(79,195,247,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,195,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,195,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-left { }
+  .badge-course {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(79,195,247,0.1);
+    border: 1px solid rgba(79,195,247,0.3);
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  h1 span { color: var(--accent); }
+  .header-sub { font-size: 13px; color: var(--text2); margin-top: 6px; font-family: var(--mono); }
+
+  /* Circuit diagram */
+  .circuit-svg-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+  }
+
+  /* Main layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .left-col { display: flex; flex-direction: column; gap: 1.25rem; }
+  .right-col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  /* Panels */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::before {
+    content: '';
+    display: block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* Sliders */
+  .ctrl-group { margin-bottom: 1.1rem; }
+  .ctrl-group:last-child { margin-bottom: 0; }
+  .ctrl-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .ctrl-name { font-size: 13px; color: var(--text2); }
+  .ctrl-value {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--bg3);
+    border-radius: 2px;
+    outline: none;
+    border: 1px solid var(--border);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(79,195,247,0.6);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, var(--accent) var(--pct, 50%), var(--bg3) var(--pct, 50%));
+    height: 4px;
+    border-radius: 2px;
+  }
+
+  /* Metric cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .metric {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .metric.m-blue::after { background: var(--accent); }
+  .metric.m-green::after { background: var(--green); }
+  .metric.m-amber::after { background: var(--amber); }
+  .metric.m-purple::after { background: var(--accent3); }
+  .metric-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 1px; }
+  .metric-val { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+  .metric-unit { font-size: 11px; color: var(--text2); margin-left: 3px; }
+  .m-blue .metric-val { color: var(--accent); }
+  .m-green .metric-val { color: var(--green); }
+  .m-amber .metric-val { color: var(--amber); }
+  .m-purple .metric-val { color: var(--accent3); }
+
+  /* Formulas */
+  .formula {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .formula span { color: var(--accent2); }
+
+  /* Chart */
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 260px;
+  }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 1rem;
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .tab {
+    flex: 1;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+    text-align: center;
+    cursor: pointer;
+    color: var(--text2);
+    border: none;
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: var(--panel2);
+    color: var(--accent);
+    border: 1px solid var(--border2);
+    box-shadow: var(--glow);
+  }
+
+  /* Table */
+  .table-scroll { overflow-x: auto; max-height: 320px; overflow-y: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--panel2);
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    text-align: right;
+    border-bottom: 1px solid var(--border2);
+    font-weight: 700;
+  }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:hover { background: var(--panel2); }
+  tbody td { padding: 7px 12px; text-align: right; color: var(--text2); }
+  tbody td:first-child { text-align: left; color: var(--text); }
+  .row-tau td { color: var(--amber) !important; background: rgba(255,215,64,0.05); }
+  .row-tau td:first-child::after { content: ' ← τ'; font-size: 10px; opacity: 0.7; }
+
+  /* Regression panel */
+  .reg-result {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .reg-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .reg-label { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  .reg-val { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--green); }
+  .reg-val.err { color: var(--amber); }
+
+  .eq-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .eq-num {
+    min-width: 22px; height: 22px;
+    background: rgba(79,195,247,0.15);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+  .eq-content { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .eq-content code {
+    font-family: var(--mono);
+    color: var(--accent2);
+    background: rgba(0,229,255,0.07);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* Bottom bar */
+  .bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-top: 1.25rem;
+  }
+  .bottom-info { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+  .btn-group { display: flex; gap: 8px; }
+  .btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: var(--mono);
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--accent);
+    transition: all 0.2s;
+  }
+  .btn:hover { background: rgba(79,195,247,0.1); box-shadow: var(--glow); }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+  .btn.primary:hover { background: var(--accent2); box-shadow: 0 0 20px rgba(0,229,255,0.4); }
+
+  /* Oscilloscope trace effect on chart */
+  .scope-wrap {
+    background: #040a12;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    position: relative;
+  }
+  .scope-wrap::before {
+    content: 'CH1  I(t)';
+    position: absolute;
+    top: 8px; left: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  .scope-wrap::after {
+    content: 'RC SIM v1.0';
+    position: absolute;
+    top: 8px; right: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+
+  .section-hidden { display: none; }
+
+  /* Pulsing dot */
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.5)} }
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  .panel { animation: fadeIn 0.4s ease both; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="header-left">
+      <div class="badge-course">Física II — Lab Circuitos</div>
+      <h1>Simulador <span>Circuito RC</span></h1>
+      <div class="header-sub">Carga del capacitor · Ley de Ohm · Semanas 3–5</div>
+    </div>
+    <div class="circuit-svg-wrap" style="width:340px;">
+      <svg viewBox="0 0 320 110" width="300" height="100">
+        <!-- Wire top -->
+        <line x1="30" y1="30" x2="290" y2="30" stroke="#4fc3f7" stroke-width="2"/>
+        <!-- Wire bottom -->
+        <line x1="30" y1="80" x2="290" y2="80" stroke="#4fc3f7" stroke-width="2"/>
+        <!-- Left wire -->
+        <line x1="30" y1="30" x2="30" y2="80" stroke="#4fc3f7" stroke-width="2"/>
+        <!-- Battery -->
+        <line x1="22" y1="48" x2="38" y2="48" stroke="#69f0ae" stroke-width="3"/>
+        <line x1="26" y1="56" x2="34" y2="56" stroke="#69f0ae" stroke-width="2"/>
+        <line x1="22" y1="64" x2="38" y2="64" stroke="#69f0ae" stroke-width="3"/>
+        <text x="43" y="58" font-family="Space Mono" font-size="9" fill="#69f0ae">V</text>
+        <!-- Resistor -->
+        <rect x="80" y="22" width="60" height="16" rx="3" fill="none" stroke="#ffd740" stroke-width="2"/>
+        <text x="98" y="18" font-family="Space Mono" font-size="9" fill="#ffd740">R</text>
+        <!-- Switch -->
+        <circle cx="200" cy="30" r="3" fill="#4fc3f7"/>
+        <line x1="200" y1="30" x2="214" y2="22" stroke="#4fc3f7" stroke-width="2"/>
+        <text x="196" y="18" font-family="Space Mono" font-size="9" fill="#4fc3f7">S</text>
+        <!-- Capacitor -->
+        <line x1="258" y1="30" x2="258" y2="46" stroke="#7c4dff" stroke-width="2"/>
+        <line x1="244" y1="46" x2="272" y2="46" stroke="#7c4dff" stroke-width="3"/>
+        <line x1="244" y1="52" x2="272" y2="52" stroke="#7c4dff" stroke-width="3"/>
+        <line x1="258" y1="52" x2="258" y2="80" stroke="#7c4dff" stroke-width="2"/>
+        <text x="276" y="53" font-family="Space Mono" font-size="9" fill="#7c4dff">C</text>
+        <!-- Current arrow -->
+        <path d="M160 24 L172 24 L168 20 M172 24 L168 28" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
+        <text x="156" y="18" font-family="Space Mono" font-size="8" fill="#00e5ff">I(t)</text>
+      </svg>
+    </div>
+  </header>
+
+  <div class="main-grid">
+
+    <!-- LEFT: Controls + Metrics -->
+    <div class="left-col">
+
+      <div class="panel">
+        <div class="panel-title">Parámetros del circuito</div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-header">
+            <span class="ctrl-name">Voltaje de fuente</span>
+            <span class="ctrl-value" id="lbl-v">12 V</span>
+          </div>
+          <input type="range" id="sl-v" min="3" max="24" step="1" value="12" oninput="update()">
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-header">
+            <span class="ctrl-name">Resistencia R</span>
+            <span class="ctrl-value" id="lbl-r">500 Ω</span>
+          </div>
+          <input type="range" id="sl-r" min="50" max="2000" step="50" value="500" oninput="update()">
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-header">
+            <span class="ctrl-name">Capacitancia C</span>
+            <span class="ctrl-value" id="lbl-c">470 µF</span>
+          </div>
+          <input type="range" id="sl-c" min="100" max="2200" step="100" value="470" oninput="update()">
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Resultados calculados</div>
+        <div class="metrics-grid">
+          <div class="metric m-blue">
+            <div class="metric-label">τ = RC</div>
+            <div><span class="metric-val" id="m-tau">235</span><span class="metric-unit">ms</span></div>
+          </div>
+          <div class="metric m-green">
+            <div class="metric-label">I₀ = V/R</div>
+            <div><span class="metric-val" id="m-i0">24.0</span><span class="metric-unit">mA</span></div>
+          </div>
+          <div class="metric m-amber">
+            <div class="metric-label">Q_max = CV</div>
+            <div><span class="metric-val" id="m-q">5.64</span><span class="metric-unit">mC</span></div>
+          </div>
+          <div class="metric m-purple">
+            <div class="metric-label">t_99% ≈ 5τ</div>
+            <div><span class="metric-val" id="m-5t">1175</span><span class="metric-unit">ms</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Ecuaciones teóricas</div>
+        <div class="formula"><span>I(t)</span> = (V/R) · e^(−t/τ)</div>
+        <div class="formula"><span>Q(t)</span> = C·V · (1 − e^(−t/τ))</div>
+        <div class="formula"><span>Vc(t)</span> = V · (1 − e^(−t/τ))</div>
+        <div class="formula" style="border-left-color: var(--amber)"><span style="color:var(--amber)">τ</span> = R · C</div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Chart + Tabs -->
+    <div class="right-col">
+
+      <div class="panel">
+        <div class="panel-title"><span class="live-dot"></span>Gráfica I vs t</div>
+        <div class="scope-wrap" style="padding-top: 2rem;">
+          <div class="chart-wrap">
+            <canvas id="chart-i" role="img" aria-label="Corriente vs tiempo en circuito RC"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tab-bar">
+          <button class="tab active" onclick="showTab('datos',this)">Tabla de datos</button>
+          <button class="tab" onclick="showTab('regresion',this)">Ajuste exponencial</button>
+          <button class="tab" onclick="showTab('teoria',this)">Análisis teórico</button>
+        </div>
+
+        <!-- TAB: Datos -->
+        <div id="tab-datos">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>t (ms)</th>
+                  <th>I (mA)</th>
+                  <th>Q (mC)</th>
+                  <th>Vc (V)</th>
+                  <th>e^(−t/τ)</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB: Regresion -->
+        <div id="tab-regresion" class="section-hidden">
+          <div class="reg-result">
+            <div class="reg-box">
+              <div class="reg-label">τ_exp</div>
+              <div class="reg-val" id="r-tauexp">—</div>
+              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px;">ms</div>
+            </div>
+            <div class="reg-box">
+              <div class="reg-label">τ_teo</div>
+              <div class="reg-val" id="r-tauteo">—</div>
+              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px;">ms</div>
+            </div>
+            <div class="reg-box">
+              <div class="reg-label">% Error</div>
+              <div class="reg-val err" id="r-err">—</div>
+              <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px;">%</div>
+            </div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">1</div>
+            <div class="eq-content">Linealizamos: <code>ln(I) = ln(I₀) − (1/τ)·t</code> → forma <code>y = b + m·x</code></div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">2</div>
+            <div class="eq-content">Regresión lineal de mínimos cuadrados sobre los puntos <code>(t, ln I)</code></div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">3</div>
+            <div class="eq-content">Pendiente <code>m = −1/τ_exp</code> → <code>τ_exp = −1/m</code></div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">4</div>
+            <div class="eq-content">% Error = <code>|τ_exp − τ_teo| / τ_teo × 100</code></div>
+          </div>
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:6px;">ECUACIÓN DE AJUSTE:</div>
+            <div class="formula" id="r-eq" style="font-size:14px;">I(t) = — · e^(−t / —)</div>
+          </div>
+        </div>
+
+        <!-- TAB: Teoria -->
+        <div id="tab-teoria" class="section-hidden">
+          <div class="eq-step">
+            <div class="eq-num">1</div>
+            <div class="eq-content">Al cerrar el interruptor S, por KVL: <code>V = V_R + V_C = R·I + Q/C</code></div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">2</div>
+            <div class="eq-content">Como <code>I = dQ/dt</code>, la ecuación diferencial es: <code>R·(dQ/dt) + Q/C = V</code></div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">3</div>
+            <div class="eq-content">Solución general: <code>Q(t) = CV(1 − e^(−t/RC))</code> con <code>Q(0) = 0</code></div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">4</div>
+            <div class="eq-content">Derivando: <code>I(t) = dQ/dt = (V/R)·e^(−t/RC)</code></div>
+          </div>
+          <div class="eq-step">
+            <div class="eq-num">5</div>
+            <div class="eq-content">La constante de tiempo <code>τ = RC</code> es el tiempo en que <code>I cae al 36.8%</code> de I₀, o bien <code>Q alcanza el 63.2%</code> de su valor máximo.</div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--text2);">
+            Con los valores actuales:<br>
+            <span id="teoria-vals" style="color:var(--accent2);">τ = RC = 500·470×10⁻⁶ = 0.235 s</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="bottom-info" id="status-bar">● SIMULANDO — R=500Ω · C=470µF · V=12V</div>
+    <div class="btn-group">
+      <button class="btn" onclick="exportCSV()">↓ Exportar CSV</button>
+      <button class="btn primary" onclick="exportReport()">↓ Exportar Informe TXT</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let chartI = null;
+let tableData = [];
+
+function update() {
+  const V = +document.getElementById('sl-v').value;
+  const R = +document.getElementById('sl-r').value;
+  const Cuf = +document.getElementById('sl-c').value;
+  const C = Cuf * 1e-6;
+  const tau = R * C;
+
+  // Update slider labels
+  document.getElementById('lbl-v').textContent = V + ' V';
+  document.getElementById('lbl-r').textContent = R + ' Ω';
+  document.getElementById('lbl-c').textContent = Cuf + ' µF';
+
+  // Update slider fill
+  ['v','r','c'].forEach(id => {
+    const el = document.getElementById('sl-'+id);
+    const pct = (el.value - el.min) / (el.max - el.min) * 100;
+    el.style.setProperty('--pct', pct + '%');
+  });
+
+  // Metrics
+  const tauMs = tau * 1000;
+  const I0mA = (V / R) * 1000;
+  const QmC  = C * V * 1000;
+  document.getElementById('m-tau').textContent = tauMs.toFixed(1);
+  document.getElementById('m-i0').textContent  = I0mA.toFixed(2);
+  document.getElementById('m-q').textContent   = QmC.toFixed(2);
+  document.getElementById('m-5t').textContent  = (tauMs * 5).toFixed(0);
+
+  // Generate data (20 points, 0 to 6τ)
+  const n = 20;
+  tableData = [];
+  for (let i = 0; i <= n; i++) {
+    const t = (6 * tau / n) * i;
+    const exp = Math.exp(-t / tau);
+    tableData.push({
+      t_ms: t * 1000,
+      I_mA: (V / R) * exp * 1000,
+      Q_mC: C * V * (1 - exp) * 1000,
+      Vc:   V * (1 - exp),
+      exp:  exp
+    });
+  }
+
+  // Table
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  const tauRow = Math.round(n / 6);
+  tableData.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    if (i === tauRow) tr.className = 'row-tau';
+    tr.innerHTML = `
+      <td>${row.t_ms.toFixed(1)}</td>
+      <td>${row.I_mA.toFixed(4)}</td>
+      <td>${row.Q_mC.toFixed(4)}</td>
+      <td>${row.Vc.toFixed(4)}</td>
+      <td>${row.exp.toFixed(4)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Chart
+  const labels = tableData.map(r => r.t_ms.toFixed(1));
+  const dataI  = tableData.map(r => parseFloat(r.I_mA.toFixed(4)));
+
+  if (chartI) {
+    chartI.data.labels = labels;
+    chartI.data.datasets[0].data = dataI;
+    chartI.options.scales.y.max = parseFloat((I0mA * 1.1).toFixed(2));
+    chartI.update('none');
+  } else {
+    chartI = new Chart(document.getElementById('chart-i'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'I (mA)',
+          data: dataI,
+          borderColor: '#00e5ff',
+          backgroundColor: 'rgba(0,229,255,0.05)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#4fc3f7',
+          pointBorderColor: '#040a12',
+          pointBorderWidth: 1,
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a2238',
+            borderColor: '#4fc3f7',
+            borderWidth: 1,
+            titleColor: '#4fc3f7',
+            bodyColor: '#90a4ae',
+            titleFont: { family: 'Space Mono', size: 11 },
+            bodyFont: { family: 'Space Mono', size: 11 },
+            callbacks: {
+              title: ctx => 't = ' + ctx[0].label + ' ms',
+              label: ctx => 'I = ' + ctx.parsed.y.toFixed(4) + ' mA'
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 't  (ms)', color: '#546e7a', font: { family: 'Space Mono', size: 11 } },
+            ticks: { color: '#546e7a', font: { family: 'Space Mono', size: 10 }, maxTicksLimit: 8 },
+            grid: { color: 'rgba(79,195,247,0.06)' }
+          },
+          y: {
+            title: { display: true, text: 'I  (mA)', color: '#546e7a', font: { family: 'Space Mono', size: 11 } },
+            ticks: { color: '#546e7a', font: { family: 'Space Mono', size: 10 } },
+            grid: { color: 'rgba(79,195,247,0.06)' },
+            min: 0
+          }
+        }
+      }
+    });
+  }
+
+  // Regression
+  const xs  = tableData.slice(1).map(r => r.t_ms);
+  const lnI = tableData.slice(1).map(r => Math.log(r.I_mA));
+  const { slope, intercept } = linReg(xs, lnI);
+  const tauExp  = -1 / slope;
+  const pctErr  = Math.abs((tauExp - tauMs) / tauMs * 100);
+  const I0fit   = Math.exp(intercept);
+
+  document.getElementById('r-tauexp').textContent = tauExp.toFixed(2);
+  document.getElementById('r-tauteo').textContent = tauMs.toFixed(2);
+  document.getElementById('r-err').textContent    = pctErr.toFixed(3);
+  document.getElementById('r-eq').textContent     = `I(t) = ${I0fit.toFixed(3)} · e^(−t / ${tauExp.toFixed(2)})`;
+
+  // Theory
+  document.getElementById('teoria-vals').textContent =
+    `τ = RC = ${R} × ${Cuf}×10⁻⁶ = ${tauMs.toFixed(1)} ms = ${tau.toFixed(4)} s`;
+
+  // Status
+  document.getElementById('status-bar').textContent =
+    `● SIMULANDO — R=${R}Ω · C=${Cuf}µF · V=${V}V · τ=${tauMs.toFixed(1)}ms`;
+}
+
+function linReg(xs, ys) {
+  const n = xs.length;
+  const sx  = xs.reduce((a,b)=>a+b,0);
+  const sy  = ys.reduce((a,b)=>a+b,0);
+  const sxx = xs.reduce((a,b)=>a+b*b,0);
+  const sxy = xs.reduce((a,v,i)=>a+v*ys[i],0);
+  const slope = (n*sxy - sx*sy) / (n*sxx - sx*sx);
+  const intercept = (sy - slope*sx) / n;
+  return { slope, intercept };
+}
+
+function showTab(name, btn) {
+  ['datos','regresion','teoria'].forEach(t => {
+    document.getElementById('tab-'+t).classList.add('section-hidden');
+  });
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.remove('section-hidden');
+  btn.classList.add('active');
+}
+
+function exportCSV() {
+  const V = document.getElementById('sl-v').value;
+  const R = document.getElementById('sl-r').value;
+  const C = document.getElementById('sl-c').value;
+  let csv = 't_ms,I_mA,Q_mC,Vc_V,exp_factor\n';
+  tableData.forEach(r => {
+    csv += `${r.t_ms.toFixed(2)},${r.I_mA.toFixed(6)},${r.Q_mC.toFixed(6)},${r.Vc.toFixed(6)},${r.exp.toFixed(6)}\n`;
+  });
+  download(`RC_R${R}_C${C}_V${V}.csv`, csv, 'text/csv');
+}
+
+function exportReport() {
+  const V = +document.getElementById('sl-v').value;
+  const R = +document.getElementById('sl-r').value;
+  const Cuf = +document.getElementById('sl-c').value;
+  const tau = R * Cuf * 1e-6 * 1000;
+  const I0  = (V / R) * 1000;
+  const tauExp = document.getElementById('r-tauexp').textContent;
+  const err    = document.getElementById('r-err').textContent;
+
+  let txt = `
+================================================================
+  INFORME — SIMULACIÓN CIRCUITO RC
+  Física II · Semanas 3-5
+================================================================
+
+PARÁMETROS DEL CIRCUITO:
+  Voltaje de fuente:  V  = ${V} V
+  Resistencia:        R  = ${R} Ω
+  Capacitancia:       C  = ${Cuf} µF
+
+RESULTADOS TEÓRICOS:
+  Constante de tiempo:  τ_teo = R·C = ${R}·${Cuf}×10⁻⁶ = ${tau.toFixed(2)} ms
+  Corriente inicial:    I₀   = V/R = ${V}/${R} = ${I0.toFixed(4)} mA
+  Carga máxima:         Qmax = C·V = ${(Cuf*1e-6*V*1000).toFixed(4)} mC
+  Tiempo al 99%:        t₉₉  ≈ 5τ = ${(tau*5).toFixed(2)} ms
+
+ECUACIONES TEÓRICAS:
+  I(t) = (V/R) · e^(-t/τ)       = ${I0.toFixed(4)} · e^(-t/${tau.toFixed(2)})
+  Q(t) = C·V·(1 - e^(-t/τ))
+  Vc(t) = V·(1 - e^(-t/τ))
+
+AJUSTE EXPERIMENTAL (regresión lineal de ln I vs t):
+  Método:  ln(I) = ln(I₀) - (1/τ)·t  →  pendiente m = -1/τ
+  τ_exp  = ${tauExp} ms
+  τ_teo  = ${tau.toFixed(2)} ms
+  % Error = |τ_exp - τ_teo| / τ_teo × 100 = ${err} %
+
+TABLA DE DATOS SIMULADOS:
+${'t (ms)'.padEnd(12)}${'I (mA)'.padEnd(12)}${'Q (mC)'.padEnd(12)}${'Vc (V)'.padEnd(12)}
+${'-'.repeat(48)}
+${tableData.map(r =>
+  r.t_ms.toFixed(1).padEnd(12) +
+  r.I_mA.toFixed(4).padEnd(12) +
+  r.Q_mC.toFixed(4).padEnd(12) +
+  r.Vc.toFixed(4).padEnd(12)
+).join('\n')}
+
+================================================================
+  Generado con Simulador RC — Física II
+================================================================
+`;
+  download(`Informe_RC_R${R}_C${Cuf}.txt`, txt, 'text/plain');
+}
+
+function download(filename, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename;
+  a.click();
+}
+
+update();
+</script>
+</body>
+</html>
